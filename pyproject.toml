@@ -1,7 +1,7 @@
 [project]
 
 name = "nodriver" # Required
-version = "0.32"  # Required
+version = "0.34"  # Required
 
 description = """
 
@@ -64,6 +64,8 @@ classifiers = [  # Optional
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
 
 ]
 
@@ -82,7 +84,7 @@ dependencies = [
 
 [tool.setuptools]
 include-package-data = true
-packages = ["nodriver"]
+packages = ["nodriver", "nodriver.core", "nodriver.cdp"]
 
 [build-system]
 requires = ["setuptools>=43.0.0", "wheel"]
