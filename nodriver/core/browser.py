@@ -328,14 +328,10 @@ class Browser:
                     close_fds=is_posix,
                 )
             )
-
             self._process_pid = self._process.pid
-            logger.info("created process with pid %d " % self._process_pid)
 
         self._http = HTTPApi((self.config.host, self.config.port))
-
         util.get_registered_instances().add(self)
-
         await asyncio.sleep(0.25)
         for _ in range(5):
             try:
@@ -529,6 +525,9 @@ class Browser:
     def __iter__(self):
         self._i = self.tabs.index(self.main_tab)
         return self
+
+    def __reversed__(self):
+        return reversed(list(self.tabs))
 
     def __next__(self):
         try:

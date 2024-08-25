@@ -1,5 +1,7 @@
 # NODRIVER
 
+## [CLICK HERE FOR DOCS](https://ultrafunkamsterdam.github.io/nodriver/)
+
 **This package provides next level webscraping and browser automation
 using a relatively simple interface.**
 
@@ -22,7 +24,7 @@ While usability and convenience is important. It’s also easy
 to fully customizable everything using the entire array of
 [CDP](https://chromedevtools.github.io/devtools-protocol/) domains, methods and events available.
 
-## Some features
+### Some features
 
 * A blazing fast undetected chrome (-ish) automation library
 * No chromedriver binary or Selenium dependency
@@ -59,7 +61,7 @@ to fully customizable everything using the entire array of
 * ```first_submit_button = await tab.select(selector='button[type=submit]')```
 * ```inputs_in_form = await tab.select_all('form input')``` -->
 
-### Quick start
+#### Quick start
 
 * [Quickstart guide](nodriver/quickstart.md)
   * [Installation](nodriver/quickstart.md#installation)
@@ -68,7 +70,7 @@ to fully customizable everything using the entire array of
 * [Custom starting options](nodriver/quickstart.md#custom-starting-options)
 * [Alternative custom options](nodriver/quickstart.md#alternative-custom-options)
 
-### Main objects
+#### Main objects
 
 * [Browser class](nodriver/classes/browser.md)
   * [cookies](nodriver/classes/browser.md#cookies)
@@ -105,6 +107,7 @@ to fully customizable everything using the entire array of
     * [`Tab.closed`](nodriver/classes/tab.md#nodriver.Tab.closed)
     * [`Tab.download_file()`](nodriver/classes/tab.md#nodriver.Tab.download_file)
     * [`Tab.evaluate()`](nodriver/classes/tab.md#nodriver.Tab.evaluate)
+    * [`Tab.feed_cdp()`](nodriver/classes/tab.md#nodriver.Tab.feed_cdp)
     * [`Tab.find()`](nodriver/classes/tab.md#nodriver.Tab.find)
     * [`Tab.find_all()`](nodriver/classes/tab.md#nodriver.Tab.find_all)
     * [`Tab.find_element_by_text()`](nodriver/classes/tab.md#nodriver.Tab.find_element_by_text)
@@ -115,6 +118,7 @@ to fully customizable everything using the entire array of
     * [`Tab.get_all_linked_sources()`](nodriver/classes/tab.md#nodriver.Tab.get_all_linked_sources)
     * [`Tab.get_all_urls()`](nodriver/classes/tab.md#nodriver.Tab.get_all_urls)
     * [`Tab.get_content()`](nodriver/classes/tab.md#nodriver.Tab.get_content)
+    * [`Tab.get_local_storage()`](nodriver/classes/tab.md#nodriver.Tab.get_local_storage)
     * [`Tab.get_window()`](nodriver/classes/tab.md#nodriver.Tab.get_window)
     * [`Tab.inspector_open()`](nodriver/classes/tab.md#nodriver.Tab.inspector_open)
     * [`Tab.inspector_url`](nodriver/classes/tab.md#nodriver.Tab.inspector_url)
@@ -133,6 +137,7 @@ to fully customizable everything using the entire array of
     * [`Tab.select_all()`](nodriver/classes/tab.md#nodriver.Tab.select_all)
     * [`Tab.send()`](nodriver/classes/tab.md#nodriver.Tab.send)
     * [`Tab.set_download_path()`](nodriver/classes/tab.md#nodriver.Tab.set_download_path)
+    * [`Tab.set_local_storage()`](nodriver/classes/tab.md#nodriver.Tab.set_local_storage)
     * [`Tab.set_window_size()`](nodriver/classes/tab.md#nodriver.Tab.set_window_size)
     * [`Tab.set_window_state()`](nodriver/classes/tab.md#nodriver.Tab.set_window_state)
     * [`Tab.sleep()`](nodriver/classes/tab.md#nodriver.Tab.sleep)
@@ -247,7 +252,7 @@ to fully customizable everything using the entire array of
       * [`ContraDict.update()`](nodriver/classes/others_and_helpers.md#id10)
       * [`ContraDict.values()`](nodriver/classes/others_and_helpers.md#id11)
 
-### CDP object
+#### CDP object
 
 * [CDP object](nodriver/cdp.md)
   * [Accessibility](nodriver/cdp/accessibility.md)
