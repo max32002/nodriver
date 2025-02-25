@@ -475,7 +475,7 @@ class Tab(Connection):
         doc = await self.send(cdp.dom.get_document(-1, True))
         # workaround
         if doc is None:
-            doc: await self.send(cdp.dom.get_document(99, True))
+            doc = await self.send(cdp.dom.get_document(99, True))
         search_id, nresult = await self.send(cdp.dom.perform_search(text, True))
         if nresult:
             node_ids = await self.send(
@@ -567,7 +567,7 @@ class Tab(Connection):
         doc = await self.send(cdp.dom.get_document(-1, True))
         # workaround
         if doc is None:
-            doc: await self.send(cdp.dom.get_document(99, True))
+            doc = await self.send(cdp.dom.get_document(99, True))
         text = text.strip()
         search_id, nresult = await self.send(cdp.dom.perform_search(text, True))
 
