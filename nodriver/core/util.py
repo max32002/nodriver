@@ -10,6 +10,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import shutil
+from ssl import SSLContext
 import types
 from typing import (TYPE_CHECKING, Any, Callable, Generator, List, Optional,
                     Set, Tuple, TypeVar, Union)
@@ -4565,13 +4566,16 @@ class ProxyForwarder:
     fw_host: str = None
     fw_port: int = None
     fw_scheme: str = None
+    use_ssl: bool = None
+    ssl_context: SSLContext = None
 
     @property
     def proxy_server(self):
         return self._proxy_server
 
-    def __init__(self, proxy_server):
+    def __init__(self, proxy_server, ssl_context=None):
         self._proxy_server = None
+        self.ssl_context = ssl_context
 
         url = urlparse(proxy_server)
         if not url.scheme:
@@ -4579,6 +4583,8 @@ class ProxyForwarder:
             if url.path.find(":") != -1:
                 self._proxy_server = url.path
         else:
+            self.use_ssl = url.scheme == "https"
+
             if not url.username and not url.password:
                 # if no username and password are provided in the proxy url,
                 # we are not needed either
@@ -4597,7 +4603,7 @@ class ProxyForwarder:
                 self._proxy_server = f"{self.scheme}://{self.host}:{self.port}"
 
                 logger.info(
-                    "socks proxy with authentication is requested : %s" % proxy_server
+                    "%s proxy with authentication is requested : %s" % (self.scheme, proxy_server)
                 )
                 logger.info("starting forward proxy on %s:%d" % (self.host, self.port))
                 logger.info("which forwards to %s" % proxy_server)
@@ -4614,6 +4620,262 @@ class ProxyForwarder:
     ):
         if self.scheme.startswith("socks"):
             return await self.handle_socks_request(reader, writer)
+        elif self.scheme.startswith("http"):
+            return await self.handle_http_request(reader, writer)
+
+    async def handle_http_request(
+        self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter
+    ):
+        """
+        Handle HTTP CONNECT proxy requests with authentication.
+        This implements an HTTP proxy that accepts unauthenticated connections
+        and forwards them to an authenticated upstream HTTP proxy.
+        """
+        import base64
+        import ssl
+
+        MAX_LINE_LENGTH = 8192
+        REQUEST_TIMEOUT = 5.0
+        UPSTREAM_CONNECT_TIMEOUT = 30.0
+        
+        remote_writer = None
+        pipe_tasks = []
+
+        try:
+            try:
+                request_line = await asyncio.wait_for(
+                    reader.readline(), timeout=REQUEST_TIMEOUT
+                )
+            except asyncio.TimeoutError:
+                logger.warning("Client request timeout")
+                writer.write(b"HTTP/1.1 408 Request Timeout\r\n\r\n")
+                await writer.drain()
+                writer.close()
+                await writer.wait_closed()
+                return
+
+            if not request_line:
+                writer.close()
+                await writer.wait_closed()
+                return
+
+            if len(request_line) > MAX_LINE_LENGTH:
+                logger.warning(f"Oversized request line: {len(request_line)} bytes")
+                writer.write(b"HTTP/1.1 431 Request Header Fields Too Large\r\n\r\n")
+                await writer.drain()
+                writer.close()
+                await writer.wait_closed()
+                return
+
+            request_line = request_line.decode('utf-8', errors='ignore')
+
+            if not request_line.startswith('CONNECT'):
+                logger.warning(f"Non-CONNECT request received: {request_line.strip()}")
+                writer.write(b"HTTP/1.1 400 Bad Request\r\n\r\n")
+                await writer.drain()
+                writer.close()
+                await writer.wait_closed()
+                return
+
+            parts = request_line.split()
+            if len(parts) < 2:
+                logger.warning(f"Malformed CONNECT request: {request_line.strip()}")
+                writer.write(b"HTTP/1.1 400 Bad Request\r\n\r\n")
+                await writer.drain()
+                writer.close()
+                await writer.wait_closed()
+                return
+
+            target_host_port = parts[1]
+
+            if ':' not in target_host_port:
+                logger.warning(f"Invalid target format (missing port): {target_host_port}")
+                writer.write(b"HTTP/1.1 400 Bad Request\r\n\r\n")
+                await writer.drain()
+                writer.close()
+                await writer.wait_closed()
+                return
+
+            try:
+                host, port_str = target_host_port.rsplit(':', 1)
+                port = int(port_str)
+                if port < 1 or port > 65535:
+                    raise ValueError("Port out of range")
+            except ValueError:
+                logger.warning(f"Invalid port in target: {target_host_port}")
+                writer.write(b"HTTP/1.1 400 Bad Request\r\n\r\n")
+                await writer.drain()
+                writer.close()
+                await writer.wait_closed()
+                return
+
+            try:
+                while True:
+                    header = await asyncio.wait_for(
+                        reader.readline(), timeout=REQUEST_TIMEOUT
+                    )
+                    if len(header) > MAX_LINE_LENGTH:
+                        logger.warning("Oversized header line")
+                        writer.write(b"HTTP/1.1 431 Request Header Fields Too Large\r\n\r\n")
+                        await writer.drain()
+                        writer.close()
+                        await writer.wait_closed()
+                        return
+                    if not header or header == b'\r\n' or header == b'\n':
+                        break
+            except asyncio.TimeoutError:
+                logger.warning("Timeout reading client headers")
+                writer.write(b"HTTP/1.1 408 Request Timeout\r\n\r\n")
+                await writer.drain()
+                writer.close()
+                await writer.wait_closed()
+                return
+
+            try:
+                conn_params = {
+                    'host': self.fw_host,
+                    'port': self.fw_port
+                }
+
+                if self.use_ssl:
+                    if self.ssl_context:
+                        conn_params['ssl'] = self.ssl_context
+                    else:
+                        conn_params['ssl'] = ssl.create_default_context()
+
+                remote_reader, remote_writer = await asyncio.wait_for(
+                    asyncio.open_connection(**conn_params),
+                    timeout=UPSTREAM_CONNECT_TIMEOUT
+                )
+            except asyncio.TimeoutError:
+                logger.error(f"Timeout connecting to upstream proxy {self.fw_host}:{self.fw_port}")
+                writer.write(b"HTTP/1.1 504 Gateway Timeout\r\n\r\n")
+                await writer.drain()
+                writer.close()
+                await writer.wait_closed()
+                return
+            except Exception as e:
+                logger.error(f"Failed to connect to upstream proxy: {e}")
+                writer.write(b"HTTP/1.1 502 Bad Gateway\r\n\r\n")
+                await writer.drain()
+                writer.close()
+                await writer.wait_closed()
+                return
+
+            credentials = f"{self.username}:{self.password}"
+            auth_encoded = base64.b64encode(credentials.encode()).decode('ascii')
+
+            connect_request = (
+                f"CONNECT {target_host_port} HTTP/1.1\r\n"
+                f"Host: {target_host_port}\r\n"
+                f"Proxy-Authorization: Basic {auth_encoded}\r\n"
+                f"Proxy-Connection: Keep-Alive\r\n"
+                f"\r\n"
+            )
+
+            remote_writer.write(connect_request.encode())
+            await remote_writer.drain()
+
+            try:
+                response_line = await asyncio.wait_for(
+                    remote_reader.readline(), timeout=REQUEST_TIMEOUT
+                )
+            except asyncio.TimeoutError:
+                logger.error("Timeout reading upstream proxy response")
+                writer.write(b"HTTP/1.1 504 Gateway Timeout\r\n\r\n")
+                await writer.drain()
+                writer.close()
+                await writer.wait_closed()
+                remote_writer.close()
+                await remote_writer.wait_closed()
+                return
+
+            if not response_line:
+                logger.error("No response from upstream proxy")
+                writer.write(b"HTTP/1.1 502 Bad Gateway\r\n\r\n")
+                await writer.drain()
+                writer.close()
+                await writer.wait_closed()
+                remote_writer.close()
+                await remote_writer.wait_closed()
+                return
+
+            response_line_str = response_line.decode('utf-8', errors='ignore')
+
+            upstream_headers = []
+            try:
+                while True:
+                    header = await asyncio.wait_for(
+                        remote_reader.readline(), timeout=REQUEST_TIMEOUT
+                    )
+                    if not header or header == b'\r\n' or header == b'\n':
+                        break
+                    upstream_headers.append(header)
+            except asyncio.TimeoutError:
+                logger.error("Timeout reading upstream proxy headers")
+                writer.write(b"HTTP/1.1 504 Gateway Timeout\r\n\r\n")
+                await writer.drain()
+                writer.close()
+                await writer.wait_closed()
+                remote_writer.close()
+                await remote_writer.wait_closed()
+                return
+
+            if '200' in response_line_str:
+                writer.write(b"HTTP/1.1 200 Connection Established\r\n\r\n")
+                await writer.drain()
+
+                event = asyncio.Event()
+                pipe_tasks = [
+                    asyncio.create_task(self.pipe(remote_reader, writer, event)),
+                    asyncio.create_task(self.pipe(reader, remote_writer, event))
+                ]
+                
+                try:
+                    await asyncio.gather(*pipe_tasks)
+                finally:
+                    # Ensure tasks are cancelled and cleaned up to prevent resource leaks
+                    for task in pipe_tasks:
+                        if not task.done():
+                            task.cancel()
+                    await asyncio.gather(*pipe_tasks, return_exceptions=True)
+            else:
+                logger.error(f"Upstream proxy rejected connection: {response_line_str.strip()}")
+                writer.write(b"HTTP/1.1 502 Bad Gateway\r\n")
+                writer.write(b"Content-Type: text/plain\r\n")
+                writer.write(b"\r\n")
+                writer.write(b"Upstream proxy rejected the connection\r\n")
+                await writer.drain()
+                writer.close()
+                await writer.wait_closed()
+                remote_writer.close()
+                await remote_writer.wait_closed()
+
+        except Exception as e:
+            logger.error(f"Error handling HTTP proxy request: {e}", exc_info=True)
+            try:
+                writer.write(b"HTTP/1.1 500 Internal Server Error\r\n\r\n")
+                await writer.drain()
+            except:
+                pass
+        finally:
+            try:
+                if not writer.is_closing():
+                    writer.close()
+                    await writer.wait_closed()
+            except:
+                pass
+            
+            try:
+                if remote_writer and not remote_writer.is_closing():
+                    remote_writer.close()
+                    await remote_writer.wait_closed()
+            except:
+                pass
+
+            for task in pipe_tasks:
+                if not task.done():
+                    task.cancel()
 
     async def handle_socks_request(
         self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter
