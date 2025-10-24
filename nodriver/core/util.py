@@ -4599,8 +4599,13 @@ class ProxyForwarder:
                 self.fw_scheme = url.scheme
                 self.username = url.username
                 self.password = url.password
-                # report back ourselves as the proxy server
-                self._proxy_server = f"{self.scheme}://{self.host}:{self.port}"
+
+                # For HTTP/HTTPS proxies, always use http:// for local forwarder
+                # (local forwarder accepts plain HTTP CONNECT and handles SSL to upstream)
+                if self.scheme.startswith("http"):
+                    self._proxy_server = f"http://{self.host}:{self.port}"
+                else:
+                    self._proxy_server = f"{self.scheme}://{self.host}:{self.port}"
 
                 logger.info(
                     "%s proxy with authentication is requested : %s" % (self.scheme, proxy_server)
