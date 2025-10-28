@@ -397,7 +397,7 @@ class Tab(Connection):
                     asyncio.create_task(self.browser.update_targets()),
                     asyncio.create_task(asyncio.sleep(t)),
                 ],
-                return_when=asyncio.FIRST_COMPLETED,
+                return_when=asyncio.ALL_COMPLETED,
             )
 
     async def xpath(

@@ -309,7 +309,11 @@ class Connection(metaclass=CantTouchThis):
                         continue
                     if inspect.isbuiltin(obj):
                         continue
-                    del self.handlers[obj]
+                    try:
+                        del self.handlers[obj]
+                    except KeyError:
+                        # missing key is not that important here
+                        pass
                 return
             else:
                 del self.handlers[evt_dom]
@@ -388,7 +392,7 @@ class Connection(metaclass=CantTouchThis):
                     enabled_domains.remove(domain_mod)
                 continue
             elif domain_mod not in self.enabled_domains:
-                if domain_mod in (cdp.target, cdp.storage):
+                if domain_mod in (cdp.target, cdp.storage, cdp.input_):
                     # by default enabled
                     continue
                 try:

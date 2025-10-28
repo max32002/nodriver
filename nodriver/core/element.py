@@ -499,8 +499,8 @@ class Element:
                 raise Exception("could not find position for %s " % self)
             pos = Position(quads[0])
             if abs:
-                scroll_y = (await self.tab.evaluate("window.scrollY")).value
-                scroll_x = (await self.tab.evaluate("window.scrollX")).value
+                scroll_y = await self.tab.evaluate("window.scrollY")
+                scroll_x = await self.tab.evaluate("window.scrollX")
                 abs_x = pos.left + scroll_x + (pos.width / 2)
                 abs_y = pos.top + scroll_y + (pos.height / 2)
                 pos.abs_x = abs_x

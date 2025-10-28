@@ -143,8 +143,37 @@ def free_port() -> int:
     return port
 
 
-def deconstruct_browser():
+def deconstruct_browser(browser: Browser = None):
+    """
+    deconstructs all sessions and cleans up any leftover temp files (profile)
+    it requires no params.
+    if however, a browser instance is passed as argument, then run an async cleanup
+    routine for that instance only. (this is used for :py:class:`browser.BrowserContext`  context manager)
+
+    :param browser: optional - the browser instance to cleanup the single instance
+    :ptype browser: browser.Browser
+    """
     import time
+
+    if browser is not None:
+
+        async def deconstruct(b: Browser):
+            if not b.stopped:
+                b.stop()
+            config = b.config
+            if not config.uses_custom_data_dir:
+                for _ in range(3):
+                    try:
+                        shutil.rmtree(config.user_data_dir, ignore_errors=False)
+                        print(
+                            "successfully removed temp profile %s"
+                            % config.user_data_dir
+                        )
+                        break
+                    except (Exception,):
+                        await asyncio.sleep(0.250)
+
+        return asyncio.get_running_loop().create_task(deconstruct(browser))
 
     for _ in __registered__instances__:
         if not _.stopped:
@@ -168,6 +197,7 @@ def deconstruct_browser():
                     break
                 time.sleep(0.15)
                 continue
+    __registered__instances__.clear()
 
 
 def filter_recurse_all(
@@ -4619,7 +4649,7 @@ class ProxyForwarder:
         self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter
     ):
         import socket
-        from struct import calcsize, pack, unpack
+        from struct import calcsize, error, pack, unpack
 
         NO_ADDR = "0.0.0.0"
         ATYP_IPv4 = 0x01
@@ -4634,17 +4664,28 @@ class ProxyForwarder:
             :return tuple:
             """
             data = await reader.read(calcsize(fmt))
-            return unpack(fmt, data)
+            try:
+                return unpack(fmt, data)
+            except error as e:
+                if "buffer" in str(e):
+                    logger.debug(
+                        f"socks proxy read invalid data {e.args[0]}  - got {data} ({len(data)} bytes)"
+                    )
+                raise
 
-        version, num_methods = await read(">BB")
-        methods = await read("!" + "B" * num_methods)
+        try:
+            version, num_methods = await read("!BB")
+        except error as e:
+            return
 
-        # signal to the client there is no username, password required
-        # meanwhile, we do need auth to the upstream server
+        # fire and forget socks auth methods
+        await read("!" + "B" * num_methods)
+
+        # we only need to auth with the upstream proxy
         writer.write(pack("!BB", version, 0))
 
         # read command from the client
-        version, cmd, resv, atyp = await read(">BBBB")
+        version, cmd, resv, atyp = await read("!BBBB")
 
         if atyp == ATYP_IPv4:
             ip_packed = await reader.read(4)
@@ -4674,13 +4715,13 @@ class ProxyForwarder:
         )
 
         # handshake with upstream proxy
-        remote_writer.write(pack(">BBB", version, 1, 2))
-        server_version, server_auth_method = await remote_reader.read(calcsize(">BB"))
+        remote_writer.write(pack("!BBB", version, 1, 2))
+        server_version, server_auth_method = await remote_reader.read(calcsize("!BB"))
 
         #  authenticate to upstream proxy
         if server_auth_method == 2:
             auth_ticket = pack(
-                f">BB{len(self.username)}sB{len(self.password)}s",
+                f"!BB{len(self.username)}sB{len(self.password)}s",
                 1,
                 len(self.username),
                 self.username.encode(),
@@ -4696,8 +4737,8 @@ class ProxyForwarder:
                 raise Exception("socks authentication error: %s" % result)
 
         # forward client socks5 message to upstream proxy
-        remote_writer.write(pack(">BBBB", version, cmd, resv, atyp))
-        remote_writer.write(pack(">B", hostname_len))
+        remote_writer.write(pack("!BBBB", version, cmd, resv, atyp))
+        remote_writer.write(pack("!B", hostname_len))
         remote_writer.write(pack(f"!{hostname_len}s", hostname))
         remote_writer.write(pack("!H", port))
 

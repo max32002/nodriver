@@ -178,7 +178,13 @@ class Config:
         args = self._default_browser_args.copy()
         args += ["--user-data-dir=%s" % self.user_data_dir]
         args += ["--disable-session-crashed-bubble"]
-        args += ["--disable-features=IsolateOrigins,site-per-process"]
+
+        disabled_features = "IsolateOrigins,site-per-process"
+        if self._extensions:
+            disabled_features += ",DisableLoadExtensionCommandLineSwitch"
+        args += [f"--disable-features={disabled_features}"]
+        if self._extensions:
+            args += ["--enable-unsafe-extension-debugging"]
         if self.expert:
             args += ["--disable-site-isolation-trials"]
         if self._browser_args:

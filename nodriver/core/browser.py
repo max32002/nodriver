@@ -454,11 +454,7 @@ class Browser:
             await self.connection.send(cdp.target.set_discover_targets(discover=True))
 
         await self.update_targets()
-
-        # await self
-
-        # self.connection.handlers[cdp.inspector.Detached] = [self.stop]
-        # return self
+        await self
 
     async def grant_all_permissions(self):
         """
@@ -559,7 +555,6 @@ class Browser:
         return info
 
     async def update_targets(self):
-
         targets: List[cdp.target.TargetInfo]
         targets = await self._get_targets()
         target_ids = [t.target_id for t in targets]
@@ -584,13 +579,6 @@ class Browser:
                 )
 
         await asyncio.sleep(0)
-
-    async def __aenter__(self):
-        return self
-
-    async def __aexit__(self, exc_type, exc_val, exc_tb):
-        if exc_type and exc_val:
-            raise exc_type(exc_val)
 
     def __iter__(self):
         self._i = self.tabs.index(self.main_tab)
@@ -931,6 +919,53 @@ class HTTPApi:
             None, lambda: urllib.request.urlopen(request, timeout=10)
         )
         return json.loads(response.read())
+
+
+class BrowserContext:
+    def __init__(
+        self,
+        config: Config = None,
+        *,
+        user_data_dir: PathLike = None,
+        headless: bool = False,
+        browser_executable_path: PathLike = None,
+        browser_args: List[str] = None,
+        sandbox: bool = True,
+        host: str = None,
+        port: int = None,
+        keep_open: bool = False,
+        **kwargs,
+    ):
+        self._config = config
+        self._user_data_dir = user_data_dir
+        self._headless = headless
+        self._browser_executable_path = browser_executable_path
+        self._browser_args = browser_args
+        self._sandbox = sandbox
+        self._host = host
+        self._port = port
+        self._kwargs = kwargs
+        self._instance: Browser = None
+        self._keep_open = keep_open
+
+    async def __aenter__(self):
+        if not self._instance:
+            self._instance = await Browser.create(
+                self._config,
+                user_data_dir=self._user_data_dir,
+                headless=self._headless,
+                browser_executable_path=self._browser_executable_path,
+                browser_args=self._browser_args,
+                sandbox=self._sandbox,
+                host=self._host,
+                port=self._port,
+                **self._kwargs,
+            )
+        return self._instance
+
+    async def __aexit__(self, exc_type, exc_val, exc_tb):
+        if not self._keep_open:
+            await util.deconstruct_browser(self._instance)
 
 
 atexit.register(util.deconstruct_browser)

@@ -134,6 +134,8 @@ to. For more information, see
 
 .. autofunction:: focus
 
+.. autofunction:: force_show_popover
+
 .. autofunction:: get_anchor_element
 
 .. autofunction:: get_attributes
@@ -287,6 +289,11 @@ you use the event's attributes.
       :exclude-members: from_json, to_json
 
 .. autoclass:: ScrollableFlagUpdated
+      :members:
+      :undoc-members:
+      :exclude-members: from_json, to_json
+
+.. autoclass:: AffectedByStartingStylesFlagUpdated
       :members:
       :undoc-members:
       :exclude-members: from_json, to_json
