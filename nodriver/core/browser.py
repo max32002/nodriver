@@ -291,17 +291,20 @@ class Browser:
         proxy_server: str = None,
         proxy_bypass_list: List[str] = None,
         origins_with_universal_network_access: List[str] = None,
+        proxy_ssl_context = None,
     ) -> tab.Tab:
         """
         creates a new browser context - mostly useful if you want to use proxies for different browser instances
         since chrome usually can only use 1 proxy per browser.
         socks5 with authentication is supported by using a forwarder proxy, the
         correct string to use socks proxy with username/password auth is socks://USERNAME:PASSWORD@SERVER:PORT
+        http/https proxies with authentication are also supported: http://USERNAME:PASSWORD@SERVER:PORT
 
         dispose_on_detach – (EXPERIMENTAL) (Optional) If specified, disposes this context when debugging session disconnects.
         proxy_server – (EXPERIMENTAL) (Optional) Proxy server, similar to the one passed to –proxy-server
         proxy_bypass_list – (EXPERIMENTAL) (Optional) Proxy bypass list, similar to the one passed to –proxy-bypass-list
         origins_with_universal_network_access – (EXPERIMENTAL) (Optional) An optional list of origins to grant unlimited cross-origin access to. Parts of the URL other than those constituting origin are ignored.
+        proxy_ssl_context – (Optional) Custom SSL context for HTTPS proxy connections. If None, a default context is used.
 
         :param new_window:
         :type new_window:
@@ -317,11 +320,14 @@ class Browser:
         :type proxy_bypass_list:
         :param origins_with_universal_network_access:
         :type origins_with_universal_network_access:
+        :param proxy_ssl_context:
+        :type proxy_ssl_context: ssl.SSLContext
         :return:
         :rtype:
         """
+
         if proxy_server:
-            fw = util.ProxyForwarder(proxy_server=proxy_server)
+            fw = util.ProxyForwarder(proxy_server=proxy_server, ssl_context=proxy_ssl_context)
             proxy_server = fw.proxy_server
 
         ctx: cdp.browser.BrowserContextID = await self.connection.send(
