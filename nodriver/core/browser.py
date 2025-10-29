@@ -161,7 +161,13 @@ class Browser:
         :return:
         """
         try:
-            await asyncio.sleep(time)
+            await asyncio.wait(
+                [
+                    asyncio.create_task(self.update_targets()),
+                    asyncio.create_task(asyncio.sleep(time)),
+                ],
+                return_when=asyncio.ALL_COMPLETED,
+            )
         except asyncio.TimeoutError:
             pass
 

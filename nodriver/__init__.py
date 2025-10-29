@@ -10,7 +10,7 @@ from nodriver import cdp
 from nodriver.core import util
 from nodriver.core._contradict import ContraDict  # noqa
 from nodriver.core._contradict import cdict
-from nodriver.core.browser import Browser
+from nodriver.core.browser import Browser, BrowserContext
 from nodriver.core.config import Config
 from nodriver.core.connection import Connection
 from nodriver.core.connection import ProtocolException

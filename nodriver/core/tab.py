@@ -1219,39 +1219,39 @@ class Tab(Connection):
             )
         )
 
-    async def wait(self, t: Union[int, float] = None):
-
-        # await self.browser.wait()
-
-        loop = asyncio.get_running_loop()
-        start = loop.time()
-        event = asyncio.Event()
-        wait_events = [
-            cdp.page.FrameStoppedLoading,
-            cdp.page.FrameDetached,
-            cdp.page.FrameNavigated,
-            cdp.page.LifecycleEvent,
-            cdp.page.LoadEventFired,
-        ]
-
-        handler = lambda ev: event.set()
-
-        self.add_handler(wait_events, handler=handler)
-        try:
-            if not t:
-                t = 0.5
-                done, pending = await asyncio.wait(
-                    [
-                        asyncio.ensure_future(event.wait()),
-                        asyncio.ensure_future(asyncio.sleep(t)),
-                    ],
-                    return_when=asyncio.FIRST_COMPLETED,
-                )
-
-                [p.cancel() for p in pending]
-
-        finally:
-            self.remove_handler(wait_events, handler=handler)
+    async def wait(self, t: Union[int, float] = 0.5):
+        return await self.sleep(t)
+        # # await self.browser.wait()
+        #
+        # loop = asyncio.get_running_loop()
+        # start = loop.time()
+        # event = asyncio.Event()
+        # wait_events = [
+        #     cdp.page.FrameStoppedLoading,
+        #     cdp.page.FrameDetached,
+        #     cdp.page.FrameNavigated,
+        #     cdp.page.LifecycleEvent,
+        #     cdp.page.LoadEventFired,
+        # ]
+        #
+        # handler = lambda ev: event.set()
+        #
+        # self.add_handler(wait_events, handler=handler)
+        # try:
+        #     if not t:
+        #         t = 0.5
+        #         done, pending = await asyncio.wait(
+        #             [
+        #                 asyncio.ensure_future(event.wait()),
+        #                 asyncio.ensure_future(asyncio.sleep(t)),
+        #             ],
+        #             return_when=asyncio.FIRST_COMPLETED,
+        #         )
+        #
+        #         [p.cancel() for p in pending]
+        #
+        # finally:
+        #     self.remove_handler(wait_events, handler=handler)
         #         await asyncio.wait_for()
         #     except asyncio.TimeoutError:
         #         if isinstance(t, (int, float)):
