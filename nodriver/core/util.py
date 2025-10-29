@@ -10,8 +10,8 @@ from __future__ import annotations
 import asyncio
 import logging
 import shutil
-from ssl import SSLContext
 import types
+from ssl import SSLContext
 from typing import (TYPE_CHECKING, Any, Callable, Generator, List, Optional,
                     Set, Tuple, TypeVar, Union)
 
@@ -4638,7 +4638,8 @@ class ProxyForwarder:
                     self._proxy_server = f"{self.scheme}://{self.host}:{self.port}"
 
                 logger.info(
-                    "%s proxy with authentication is requested : %s" % (self.scheme, proxy_server)
+                    "%s proxy with authentication is requested : %s"
+                    % (self.scheme, proxy_server)
                 )
                 logger.info("starting forward proxy on %s:%d" % (self.host, self.port))
                 logger.info("which forwards to %s" % proxy_server)
@@ -4672,7 +4673,7 @@ class ProxyForwarder:
         MAX_LINE_LENGTH = 8192
         REQUEST_TIMEOUT = 5.0
         UPSTREAM_CONNECT_TIMEOUT = 30.0
-        
+
         remote_writer = None
         pipe_tasks = []
 
@@ -4702,9 +4703,9 @@ class ProxyForwarder:
                 await writer.wait_closed()
                 return
 
-            request_line = request_line.decode('utf-8', errors='ignore')
+            request_line = request_line.decode("utf-8", errors="ignore")
 
-            if not request_line.startswith('CONNECT'):
+            if not request_line.startswith("CONNECT"):
                 logger.warning(f"Non-CONNECT request received: {request_line.strip()}")
                 writer.write(b"HTTP/1.1 400 Bad Request\r\n\r\n")
                 await writer.drain()
@@ -4723,8 +4724,10 @@ class ProxyForwarder:
 
             target_host_port = parts[1]
 
-            if ':' not in target_host_port:
-                logger.warning(f"Invalid target format (missing port): {target_host_port}")
+            if ":" not in target_host_port:
+                logger.warning(
+                    f"Invalid target format (missing port): {target_host_port}"
+                )
                 writer.write(b"HTTP/1.1 400 Bad Request\r\n\r\n")
                 await writer.drain()
                 writer.close()
@@ -4732,7 +4735,7 @@ class ProxyForwarder:
                 return
 
             try:
-                host, port_str = target_host_port.rsplit(':', 1)
+                host, port_str = target_host_port.rsplit(":", 1)
                 port = int(port_str)
                 if port < 1 or port > 65535:
                     raise ValueError("Port out of range")
@@ -4751,12 +4754,14 @@ class ProxyForwarder:
                     )
                     if len(header) > MAX_LINE_LENGTH:
                         logger.warning("Oversized header line")
-                        writer.write(b"HTTP/1.1 431 Request Header Fields Too Large\r\n\r\n")
+                        writer.write(
+                            b"HTTP/1.1 431 Request Header Fields Too Large\r\n\r\n"
+                        )
                         await writer.drain()
                         writer.close()
                         await writer.wait_closed()
                         return
-                    if not header or header == b'\r\n' or header == b'\n':
+                    if not header or header == b"\r\n" or header == b"\n":
                         break
             except asyncio.TimeoutError:
                 logger.warning("Timeout reading client headers")
@@ -4767,23 +4772,22 @@ class ProxyForwarder:
                 return
 
             try:
-                conn_params = {
-                    'host': self.fw_host,
-                    'port': self.fw_port
-                }
+                conn_params = {"host": self.fw_host, "port": self.fw_port}
 
                 if self.use_ssl:
                     if self.ssl_context:
-                        conn_params['ssl'] = self.ssl_context
+                        conn_params["ssl"] = self.ssl_context
                     else:
-                        conn_params['ssl'] = ssl.create_default_context()
+                        conn_params["ssl"] = ssl.create_default_context()
 
                 remote_reader, remote_writer = await asyncio.wait_for(
                     asyncio.open_connection(**conn_params),
-                    timeout=UPSTREAM_CONNECT_TIMEOUT
+                    timeout=UPSTREAM_CONNECT_TIMEOUT,
                 )
             except asyncio.TimeoutError:
-                logger.error(f"Timeout connecting to upstream proxy {self.fw_host}:{self.fw_port}")
+                logger.error(
+                    f"Timeout connecting to upstream proxy {self.fw_host}:{self.fw_port}"
+                )
                 writer.write(b"HTTP/1.1 504 Gateway Timeout\r\n\r\n")
                 await writer.drain()
                 writer.close()
@@ -4798,7 +4802,7 @@ class ProxyForwarder:
                 return
 
             credentials = f"{self.username}:{self.password}"
-            auth_encoded = base64.b64encode(credentials.encode()).decode('ascii')
+            auth_encoded = base64.b64encode(credentials.encode()).decode("ascii")
 
             connect_request = (
                 f"CONNECT {target_host_port} HTTP/1.1\r\n"
@@ -4835,7 +4839,7 @@ class ProxyForwarder:
                 await remote_writer.wait_closed()
                 return
 
-            response_line_str = response_line.decode('utf-8', errors='ignore')
+            response_line_str = response_line.decode("utf-8", errors="ignore")
 
             upstream_headers = []
             try:
@@ -4843,7 +4847,7 @@ class ProxyForwarder:
                     header = await asyncio.wait_for(
                         remote_reader.readline(), timeout=REQUEST_TIMEOUT
                     )
-                    if not header or header == b'\r\n' or header == b'\n':
+                    if not header or header == b"\r\n" or header == b"\n":
                         break
                     upstream_headers.append(header)
             except asyncio.TimeoutError:
@@ -4856,16 +4860,16 @@ class ProxyForwarder:
                 await remote_writer.wait_closed()
                 return
 
-            if '200' in response_line_str:
+            if "200" in response_line_str:
                 writer.write(b"HTTP/1.1 200 Connection Established\r\n\r\n")
                 await writer.drain()
 
                 event = asyncio.Event()
                 pipe_tasks = [
                     asyncio.create_task(self.pipe(remote_reader, writer, event)),
-                    asyncio.create_task(self.pipe(reader, remote_writer, event))
+                    asyncio.create_task(self.pipe(reader, remote_writer, event)),
                 ]
-                
+
                 try:
                     await asyncio.gather(*pipe_tasks)
                 finally:
@@ -4875,7 +4879,9 @@ class ProxyForwarder:
                             task.cancel()
                     await asyncio.gather(*pipe_tasks, return_exceptions=True)
             else:
-                logger.error(f"Upstream proxy rejected connection: {response_line_str.strip()}")
+                logger.error(
+                    f"Upstream proxy rejected connection: {response_line_str.strip()}"
+                )
                 writer.write(b"HTTP/1.1 502 Bad Gateway\r\n")
                 writer.write(b"Content-Type: text/plain\r\n")
                 writer.write(b"\r\n")
@@ -4900,7 +4906,7 @@ class ProxyForwarder:
                     await writer.wait_closed()
             except:
                 pass
-            
+
             try:
                 if remote_writer and not remote_writer.is_closing():
                     remote_writer.close()

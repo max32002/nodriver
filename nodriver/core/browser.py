@@ -291,7 +291,7 @@ class Browser:
         proxy_server: str = None,
         proxy_bypass_list: List[str] = None,
         origins_with_universal_network_access: List[str] = None,
-        proxy_ssl_context = None,
+        proxy_ssl_context=None,
     ) -> tab.Tab:
         """
         creates a new browser context - mostly useful if you want to use proxies for different browser instances
@@ -327,7 +327,9 @@ class Browser:
         """
 
         if proxy_server:
-            fw = util.ProxyForwarder(proxy_server=proxy_server, ssl_context=proxy_ssl_context)
+            fw = util.ProxyForwarder(
+                proxy_server=proxy_server, ssl_context=proxy_ssl_context
+            )
             proxy_server = fw.proxy_server
 
         ctx: cdp.browser.BrowserContextID = await self.connection.send(
