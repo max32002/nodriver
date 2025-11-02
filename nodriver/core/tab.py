@@ -497,6 +497,9 @@ class Tab(Connection):
 
         if not _node:
             doc: cdp.dom.Node = await self.send(cdp.dom.get_document(-1, True))
+            # workaround
+            if doc is None:
+                doc: cdp.dom.Node = await self.send(cdp.dom.get_document(59, True))
         else:
             doc = _node
             if _node.node_name == "IFRAME":
@@ -560,6 +563,9 @@ class Tab(Connection):
 
         if not _node:
             doc: cdp.dom.Node = await self.send(cdp.dom.get_document(-1, True))
+            # workaround
+            if doc is None:
+                doc: cdp.dom.Node = await self.send(cdp.dom.get_document(59, True))
         else:
             doc = _node
             if _node.node_name == "IFRAME":
@@ -612,6 +618,9 @@ class Tab(Connection):
         """
         text = text.strip()
         doc = await self.send(cdp.dom.get_document(-1, True))
+        # workaround
+        if doc is None:
+            doc: cdp.dom.Node = await self.send(cdp.dom.get_document(59, True))
         search_id, nresult = await self.send(cdp.dom.perform_search(text, True))
         if nresult:
             node_ids = await self.send(
@@ -701,6 +710,9 @@ class Tab(Connection):
         :rtype:
         """
         doc = await self.send(cdp.dom.get_document(-1, True))
+        # workaround
+        if doc is None:
+            doc: cdp.dom.Node = await self.send(cdp.dom.get_document(59, True))
         text = text.strip()
         search_id, nresult = await self.send(cdp.dom.perform_search(text, True))
         if nresult:
